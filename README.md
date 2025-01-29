@@ -40,7 +40,7 @@ def __init__(self,token=None,context_id="",cookie=None):
 
 - **参数**:
   - `filename` (str): 图像文件的路径。
-  - `model` (str): 使用的 OCR 模型，默认为 `"gemini-2.0-flash"`。
+  - `model` (str): 使用的 OCR 模型，默认为 `"gemini-2.0-flash"`。完整的模型列表可以在`MODELS`和`ADVANCED_MODELS`常量中找到。
 
 - **返回**: 一个字符串生成器，逐步返回 AI 的响应。
 
@@ -57,7 +57,11 @@ from sider_ai_api import Session
 
 # 首先设置token和cookie变量
 session = Session(token=token, cookie=cookie)
-print("".join(session.chat("Hello, DeepSeek!","deepseek-chat"))) # Deepseek v3模型
+print("".join(session.chat("Hello, ChatGPT!", "gpt-4o-mini")))
+print("".join(session.chat("Hello, Claude!", "claude-3.5-haiku")))
+print("".join(session.chat("Hello, Gemini!", "gemini-2.0-flash")))
+print("".join(session.chat("Hello, DeepSeek!", "deepseek-chat")))  # DeepSeek-v3
+print("".join(session.chat("Hello, o1!", "o1")))
 print("".join(session.ocr("path/to/image.jpg"))) # OCR
 print(f"还剩{session.remain}/{session.total}次API调用。")
 ```
@@ -99,7 +103,7 @@ Interact with the AI using a prompt. Returns a string generator containing the A
 
 - **Parameters**:
   - `prompt` (str): The user prompt.
-  - `model` (str): The AI model to use. Defaults to `"gpt-4o-mini"`.
+  - `model` (str): The AI model to use. Defaults to `"gpt-4o-mini"`. A complete list of models can be found in the `MODELS` and `ADVANCED_MODELS` constants.
 
 - **Returns**: A string generator that progressively yields the AI's response. You can use `"".join()` to concatenate the output.
 
@@ -126,7 +130,11 @@ from sider_ai_api import Session
 
 # Firstly, set the token and cookie variables
 session = Session(token=token, cookie=cookie)
-print("".join(session.chat("Hello, DeepSeek!", "deepseek-chat")))  # DeepSeek v3 model
+print("".join(session.chat("Hello, ChatGPT!", "gpt-4o-mini")))
+print("".join(session.chat("Hello, Claude!", "claude-3.5-haiku")))
+print("".join(session.chat("Hello, Gemini!", "gemini-2.0-flash")))
+print("".join(session.chat("Hello, DeepSeek!", "deepseek-chat")))  # DeepSeek-v3
+print("".join(session.chat("Hello, o1!", "o1")))
 print("".join(session.ocr("path/to/image.jpg")))  # OCR
 print(f"Remaining {session.remain}/{session.total} API calls.")
 ```
