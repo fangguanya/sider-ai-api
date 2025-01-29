@@ -1,5 +1,5 @@
 import sys,os,warnings,subprocess,traceback
-import time,locale
+import time,locale,shlex
 from logging import basicConfig,info,debug,DEBUG
 from sider_ai_api import Session
 
@@ -64,7 +64,7 @@ def run_cmd(cmd,shell="cmd /c chcp 65001 > nul &"):
     try:
         for line in cmd.splitlines():
             line="%s %s"%(shell,line.strip())
-            result=subprocess.run(line.split(' '),capture_output=True)
+            result=subprocess.run(shlex.split(line),capture_output=True)
             stdout+=result.stdout.decode("utf-8","backslashreplace")+'\n'
             stderr+=result.stderr.decode("utf-8","backslashreplace")+'\n'
             returncode=result.returncode

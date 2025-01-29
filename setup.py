@@ -1,16 +1,16 @@
-import sys,os,shutil,subprocess
+import sys,os,shutil,subprocess,shlex
 import sider_ai_api
 from setuptools import setup,Extension
 
 try:os.chdir(os.path.split(__file__)[0])
-except:pass
+except Exception:pass
 
 if "sdist" in sys.argv[1:]:
     if not os.path.isfile("README.rst"):
         if shutil.which("pandoc"):
             cmd="pandoc -t rst -o README.rst README.md"
             print("Running pandoc:",cmd,"...")
-            result=subprocess.run(cmd.split(' '))
+            result=subprocess.run(shlex.split(cmd))
             print("Return code:",result.returncode)
         else:
             print("Requires the pandoc command to generate README.rst",
