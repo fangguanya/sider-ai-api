@@ -1,0 +1,4 @@
+_token.json
+*__pycache__*
+sider_ai_api.egg-info
+README.rst
