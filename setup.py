@@ -1,10 +1,11 @@
-import sys,os,shutil,subprocess,shlex
+import sys,os,site,shutil,subprocess,shlex
 from setuptools import setup,Extension
 
 try:
     os.chdir(os.path.split(__file__)[0])
     sys.path.append(os.getcwd())
 except Exception:pass
+sys.path.extend(site.getsitepackages()+[site.getusersitepackages()])
 import sider_ai_api
 
 if "sdist" in sys.argv[1:]:
