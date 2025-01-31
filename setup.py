@@ -1,9 +1,11 @@
 import sys,os,shutil,subprocess,shlex
-import sider_ai_api
 from setuptools import setup,Extension
 
-try:os.chdir(os.path.split(__file__)[0])
+try:
+    os.chdir(os.path.split(__file__)[0])
+    sys.path.append(os.getcwd())
 except Exception:pass
+import sider_ai_api
 
 if "sdist" in sys.argv[1:]:
     if not os.path.isfile("README.rst"):
