@@ -8,7 +8,7 @@ from warnings import warn
 try:import brotli # 处理brotli压缩格式
 except ImportError:brotli=None
 
-__version__="1.0.0"
+__version__="1.0.1"
 
 DOMAIN="api2.sider.ai"
 ORIGIN="chrome-extension://dhoenijjpgpeimemopealfcbiecgceod"
