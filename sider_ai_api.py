@@ -45,7 +45,8 @@ MODELS=["sider", # Sider Fusion
     "gemini-2.0-flash",
     "llama-3", # llama 3.1 70B
     "llama-3.3-70b",
-    "deepseek-chat" # deepseek-v3
+    "deepseek-chat", # deepseek-v3
+    "deepseek-r1-distill-llama-70b" # deepseek r1 70B
 ]
 ADVANCED_MODELS=["gpt-4o",
 "claude-3.5-sonnet",
