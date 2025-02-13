@@ -28,6 +28,8 @@ FILENAME="code.bat"
 LANGUAGE=["bash","bat",""]
 MAX_TRIES=6
 def extract_code(text, language=None):
+    if isinstance(language,str):
+        language=(language,)
     codes=[];cur_code=[];in_block=False;match_lang=False
     for lineno,line in enumerate(text.splitlines(),start=1):
         stripped=line.strip()
@@ -37,8 +39,6 @@ def extract_code(text, language=None):
                     match_lang=True
                 else:
                     # 检查语言是否匹配
-                    if not isinstance(language,(list,tuple)):
-                        language=tuple(language)
                     match_lang=False
                     for lang in language:
                         if stripped[len(CODE_BLOCK):].lower()==lang.lower():
