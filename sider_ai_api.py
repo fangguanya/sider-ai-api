@@ -4,8 +4,9 @@ For the documentation, see github.com/qfcy/sider-ai-api.
 """
 import sys,os,json,traceback,pprint
 import gzip,bz2,zlib
-import requests
 from warnings import warn
+from urllib.parse import unquote
+import requests
 try:import brotli # 处理brotli压缩格式
 except ImportError:brotli=None
 
@@ -13,6 +14,7 @@ __version__="1.0.2"
 
 ORIGIN="chrome-extension://dhoenijjpgpeimemopealfcbiecgceod"
 TIMEZONE="Asia/Shanghai"
+APP_NAME="ChitChat_Edge_Ext"
 APP_VERSION="4.40.0"
 
 DEFAULT_TOKEN_FILE="_token.json"
@@ -65,6 +67,21 @@ def normpath(path):
         path += '\\'
     return path
 
+def parse_cookie(cookie):
+    cookie_dict = {}
+    pairs = cookie.split(';')
+
+    for pair in pairs:
+        # 去除前后空格
+        pair = pair.strip()
+        if '=' in pair:
+            # 按等号分割键和值
+            key, value = pair.split('=', 1)  # 只从头开始分割一次
+            value = unquote(value.strip())
+            cookie_dict[key.strip()] = value  # 去除空格并存入字典
+
+    return cookie_dict
+
 def upload_image(filename,header):
     url="https://api1.sider.ai/api/v1/imagechat/upload"
     header = header.copy()
@@ -91,59 +108,93 @@ def upload_image(filename,header):
     return json.loads(data.decode("utf-8"))
 
 class Session:
-    def __init__(self,token=None,context_id="",cookie=None):
+    def __init__(self,token=None,context_id="",cookie=None,update_info_at_init=True):
         if token is None:
-            with open(DEFAULT_TOKEN_FILE,encoding="utf-8") as f:
-                config=json.load(f)
-                token=config["token"]
-                cookie=config.get("cookie")
+            if cookie is None:
+                if not os.path.isfile(DEFAULT_TOKEN_FILE):
+                    raise OSError(f"{DEFAULT_TOKEN_FILE} is required since neither token nor cookie is provided")
+                with open(DEFAULT_TOKEN_FILE,encoding="utf-8") as f:
+                    config=json.load(f)
+                    token=config.get("token")
+                    cookie=config.get("cookie")
+                if token is None and cookie is None:
+                    raise ValueError(f"Neither token nor cookie is provided in {DEFAULT_TOKEN_FILE}")
+        if token is None:
+            token=parse_cookie(cookie).get("token")
+            if token is None:
+                raise ValueError("token is not provided in cookie")
+            if token.startswith("Bearer "):
+                token=token[7:] # token不包含头部的Bearer
         self.context_id=context_id
         self.total=self.remain=None # 总/剩下调用次数
+        self.advanced_total=self.advanced_remain=None # 高级模型的调用次数
         self.header=HEADER.copy()
         self.header['authorization']=f'Bearer {token}'
-        if cookie is None:cookie=COOKIE_TEMPLATE.format(token=token)
+        if cookie is None:
+            cookie=COOKIE_TEMPLATE.format(token=token)
         self.header['Cookie']=cookie
+        if update_info_at_init:
+            try:self.update_userinfo()
+            except Exception as err:
+                warn(f"Failed to get user info ({type(err).__name__}): {err}")
+    def update_userinfo(self):
+        url="https://api3.sider.ai/api/v1/completion/limit/user"
+        params = {
+            "app_name": APP_NAME,
+            "app_version": APP_VERSION,
+            "tz_name": TIMEZONE
+        }
+        response = requests.get(url, params=params, headers=self.header)
+        response.raise_for_status()
+        data = response.json()
+        self.total=data["data"]["basic_credit"]["count"] or self.total
+        self.remain=data["data"]["basic_credit"]["remain"] or self.remain
+        self.advanced_total=data["data"]["advanced_credit"]["count"] or self.advanced_total
+        self.advanced_remain=data["data"]["advanced_credit"]["remain"] or self.advanced_remain
     def get_text(self,url,header,payload,deep_search=False):
         # 一个生成器，获取输出结果
         resp = requests.post(url, headers=header, json=payload, stream=True)
-        if resp.status_code == 200:
-            for line_raw in resp.iter_lines():
-                if not line_raw.strip():continue
-                try:
-                    # 解析每一行的数据
-                    line = line_raw.decode("utf-8")
-                    if payload["stream"]:
-                        if not line.startswith("data:"):continue
-                        response = line[5:]  # 去掉前缀 "data:"
+        resp.raise_for_status()
+        for line_raw in resp.iter_lines():
+            if not line_raw.strip():continue
+            try:
+                # 解析每一行的数据
+                line = line_raw.decode("utf-8")
+                if payload.get("stream",True):
+                    if not line.startswith("data:"):continue
+                    response = line[5:]  # 去掉前缀 "data:"
+                else:
+                    response = line
+
+                if not response:continue # 确保数据非空
+                if response=="[DONE]":break
+                data = json.loads(response)
+
+                if data["msg"].strip():
+                    yield "<Message: %s Code: %d>" % (data["msg"],data["code"])
+                if data["data"] is None:continue
+                if "text" in data["data"]:
+                    self.context_id=data["data"].get("cid","") or self.context_id # 对话上下文
+                    if payload.get("model") in ADVANCED_MODELS:
+                        self.advanced_total=data["data"].get("total",None) or self.advanced_total
+                        self.advanced_remain=data["data"].get("remain",None) or self.advanced_remain
                     else:
-                        response = line
-
-                    if not response:continue # 确保数据非空
-                    if response=="[DONE]":break
-                    data = json.loads(response)
-
-                    if data["msg"].strip():
-                        yield "<Message: %s Code: %d>" % (data["msg"],data["code"])
-                    if data["data"] is None:continue
-                    if "text" in data["data"]:
-                        self.context_id=data["data"].get("cid","") or self.context_id # 对话上下文
-                        self.total=data["data"].get("total",None) or self.total # or:在返回None时保留之前的self.total
+                        self.total=data["data"].get("total",None) or self.total # or: 保留旧的self.total
                         self.remain=data["data"].get("remain",None) or self.remain
-                        yield data["data"]["text"] # 输出消息
-                    if deep_search and "deep_search" in data["data"]:
-                        search=data["data"]["deep_search"]
-                        if search["status"]=="answering":
-                            yield search["field"].get("answer_fragment","")
-                        elif "field" in search:
-                            field=str(search['field'])
-                            if len(field)>=128:field=pprint.pformat(search['field'])
-                            yield f"<Status: {search['status']}: {field}>\n"
-                        else:
-                            yield f"<Status: {search['status']}>\n"
-                except Exception as err:
-                    warn(f"Error processing stream: {err} Raw: {line_raw}")
-        else:
-            raise Exception({"error": resp.status_code, "message": resp.text})
+                    yield data["data"]["text"] # 返回文本响应
+
+                if deep_search and "deep_search" in data["data"]:
+                    search=data["data"]["deep_search"]
+                    if search["status"]=="answering":
+                        yield search["field"].get("answer_fragment","")
+                    elif "field" in search:
+                        field=str(search['field'])
+                        if len(field)>=128:field=pprint.pformat(search['field'])
+                        yield f"<Status: {search['status']}: {field}>\n"
+                    else:
+                        yield f"<Status: {search['status']}>\n"
+            except Exception as err:
+                warn(f"Error processing stream ({type(err).__name__}): {err} Raw: {line_raw}")
     def chat(self,prompt,model="gpt-4o-mini",
              stream=True,output_lang=None,thinking_mode=False,
              data_analysis=True,search=False,
@@ -161,7 +212,7 @@ class Session:
         payload = {
             "prompt": prompt,
             "stream": stream,
-            "app_name": "ChitChat_Edge_Ext",
+            "app_name": APP_NAME,
             "app_version": APP_VERSION,
             "tz_name": TIMEZONE,
             "cid": self.context_id, # 对话上下文id，如果为空则开始新对话
@@ -203,7 +254,7 @@ class Session:
         payload = {
             "prompt": "ocr",
             "stream": stream,
-            "app_name": "ChitChat_Edge_Ext",
+            "app_name": APP_NAME,
             "app_version": APP_VERSION,
             "tz_name": TIMEZONE,
             "cid": self.context_id,
@@ -224,12 +275,12 @@ class Session:
             return self.get_text(url,self.header,payload)
         else:
             return "".join(self.get_text(url,self.header,payload))
-    def translate(self,content,target_lang,model="gpt-4o-mini",stream=True):
+    def translate(self,content,target_lang="English",model="gpt-4o-mini",stream=True):
         url="https://api3.sider.ai/api/v2/completion/text"
         payload = {
             "prompt": "",
             "stream": stream,
-            "app_name": "ChitChat_Edge_Ext",
+            "app_name": APP_NAME,
             "app_version": APP_VERSION,
             "tz_name": TIMEZONE,
             "model": model,
@@ -259,7 +310,7 @@ class Session:
         payload = {
             "prompt": content,
             "stream": stream,
-            "app_name": "ChitChat_Edge_Ext",
+            "app_name": APP_NAME,
             "app_version": APP_VERSION,
             "tz_name": TIMEZONE,
             "model": model,
@@ -284,7 +335,7 @@ class Session:
         payload = {"content":content,
                    "model":model,
                    "tz_name":TIMEZONE,
-                   "app_name":"ChitChat_Edge_Ext",
+                   "app_name":APP_NAME,
                    "app_version":APP_VERSION}
         return self.get_text(url,self.header,payload)
 
@@ -360,7 +411,7 @@ if __name__=="__main__":
     token_file=sys.argv[1] if len(sys.argv)>=2 else DEFAULT_TOKEN_FILE
     with open(token_file,encoding="utf-8") as f:
         config=json.load(f)
-        token=config["token"]
+        token=config.get("token")
         cookie=config.get("cookie")
     sess=Session(token=token,cookie=cookie)
     test_chat(sess)
