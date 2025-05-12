@@ -17,6 +17,17 @@ TIMEZONE="Asia/Shanghai"
 APP_NAME="ChitChat_Edge_Ext"
 APP_VERSION="4.40.0"
 
+# 国内可用
+# "https://sider.ai"
+# "https://api1.chatgpt-sidebar.com"
+# "https://api2.chatgpt-sidebar.com"
+# "https://api3.chatgpt-sidebar.com"
+# https://api1.chatgpt-sidebar.com/api/chat/v1/completions
+
+# 正式网址
+# https://api3.sider.ai/api/chat/v1/completions
+
+
 DEFAULT_TOKEN_FILE="_token.json"
 COOKIE_TEMPLATE='token=Bearer%20{token}; '
 'refresh_token=discard; '
@@ -47,18 +58,20 @@ MODELS=["sider", # Sider Fusion
     "claude-3.5-haiku",
     "gemini-1.5-flash",
     "gemini-2.0-flash",
+    "gemini-2.5-flash",
     "llama-3", # llama 3.1 70B
     "llama-3.3-70b",
     "deepseek-chat", # deepseek-v3
     "deepseek-r1-distill-llama-70b" # deepseek r1 70B
 ]
-ADVANCED_MODELS=["gpt-4o",
-"claude-3.5-sonnet",
-"gemini-1.5-pro",
-"llama-3.1-405b",
-"o1-mini",
-"o1", # o1
-"deepseek-reasoner" # deepseek-r1
+ADVANCED_MODELS=["gpt-4.1",
+"claude-3.7-sonnet",
+"gemini-2.5-pro",
+"gemini-2.5-flash-think",
+"claude-3.7-sonnet-think",
+"gemini-2.5-pro-think",
+"o4-mini",
+"o3"
 ]
 def normpath(path):
     # 重写os.path.normpath。规范化Windows路径，如去除两端的双引号等
@@ -206,7 +219,8 @@ class Session:
         if search:auto_tools.append("search")
         if text_to_image:auto_tools.append("artifact")
 
-        url = "https://sider.ai/api/v3/completion/text"
+        # url = "https://sider.ai/api/v3/completion/text"
+        url = "https://api1.chatgpt-sidebar.com/api/chat/v1/completions"
         header = self.header.copy()
         header["content-type"] = 'application/json'
         payload = {
